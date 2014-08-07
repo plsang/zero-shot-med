@@ -1,0 +1,65 @@
+function dist = compute_dist(query_bow, db_bow, para)
+if strcmp(para{1},'qonly')
+    db_bow = db_bow(query_bow~=0,:);
+    query_bow = query_bow(query_bow~=0);
+    tic;
+    switch para{2}
+    case 'l1'
+        for i=1:size(db_bow,2)
+            db_bow(:,i) = db_bow(:,i)./norm(db_bow(:,i),1);
+        end
+        query_bow = query_bow./norm(query_bow,1);
+    case 'l1root'
+        for i=1:size(db_bow,2)
+            db_bow(:,i) = db_bow(:,i)./norm(db_bow(:,i),1);
+        end
+        db_bow = sqrt(db_bow);
+        query_bow = sqrt(query_bow./norm(query_bow,1));
+    case 'l2'
+        for i=1:size(db_bow,2)
+            db_bow(:,i) = db_bow(:,i)./norm(db_bow(:,i),2);
+        end
+        query_bow = query_bow./norm(query_bow,2);
+    otherwise
+    end
+    fprintf('normalization time %.0f\n',toc);
+    dist_method = para{3};
+else
+    dist_method = para{1};
+end
+switch dist_method 
+    case {'l1','l2'}
+        dist=vl_alldist2(query_bow,db_bow,dist_method);
+    case 'intersect'
+        dist=-sum(min(repmat(query_bow,1,size(db_bow,2)),db_bow),1);
+    case 'interplus'
+        inter=sum(min(repmat(query_bow,1,size(db_bow,2)),db_bow),1);
+        coe = str2double(para{end});
+        summation = sum(query_bow)*coe+sum(db_bow,1);
+        dist = -(coe+1)*inter./summation;
+    case 'intermulti'
+        inter=sum(min(repmat(query_bow,1,size(db_bow,2)),db_bow),1);
+        multi = sum(query_bow)*sum(db_bow,1);
+        dist = -(inter.*inter)./multi;
+    case 'asymetric'
+        dist = zeros(size(db_bow,2),1);
+        temp = zeros(size(db_bow,2),1);
+        coe1 = str2double(para{end-2});
+        coe2 = str2double(para{end-1});
+        coe3 = str2double(para{end});
+        coe1_vect = zeros(size(query_bow))+coe1;
+        for i=1:size(db_bow,2)
+            dist(i)=sum(min(query_bow,db_bow(:,i)));
+            if coe2 ~= -Inf
+                coe_vect = coe1_vect;
+                coe_vect(query_bow > db_bow(:,i))=coe2;
+                diff = abs(query_bow-db_bow(:,i));
+                temp(i) = sum(diff.*coe_vect);
+            end
+        end
+        if coe2 ~= -Inf
+            dist = dist*coe3+temp;
+        else
+            dist = -dist;
+        end
+end

@@ -1,0 +1,16 @@
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 1 29347
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 29348 58694
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 58695 88041
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 88042 117388
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 117389 146735
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 146736 176082
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 176083 205429
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 205430 234776
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 234777 264123
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 264124 293470
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 293471 322817
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 322818 352164
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 352165 381511
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 381512 410858
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 410859 440205
+qsub -e /dev/null -o /dev/null /net/per610a/export/das11f/ledduy/plsang/nvtiep/INS/code/sge_script/quantize_check.sgejob.sh 440206 469539

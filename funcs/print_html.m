@@ -1,0 +1,273 @@
+function print_html(DB, knn_dir,index_html_dir,img_height,topk,num_query_perline,...
+    query_mat_dir, query_perf_dir, eval_topN, gt_filename, ex_filename)
+html_header = read_txt_file('./html_generator/html_header.txt');
+html_tailor = read_txt_file('./html_generator/html_tailor.txt');
+index_header = read_txt_file('./html_generator/index_header.txt');
+index_tailor = read_txt_file('./html_generator/index_tailor.txt');
+query_img_dir = 'query_frames';
+database_img_dir = 'db_frames';
+test_perf = true;
+if ~exist('eval_topN','var')
+    eval_topN = 1000;
+end
+if ~exist('gt_filename','var')
+    test_perf = false;
+end
+if exist('ex_filename', 'var')
+    fid = fopen(ex_filename,'r');
+    ex_list = textscan(fid,'%s');
+    ex_list = ex_list{1};
+    fclose(fid);
+end
+clobber = false;
+run_html_dir = fullfile(index_html_dir, 'run');
+
+org_DB_name='Instance Search 2012';
+DB_name = strrep(org_DB_name, '12', DB(end-1:end));
+if ~exist(index_html_dir,'dir')
+    mkdir(index_html_dir);
+end
+[exp_dir,exp_purpose] = fileparts(fileparts(query_mat_dir));
+exp_names = dir(exp_dir);
+exp_names = {exp_names(:).name};
+IndexHtml = [index_html_dir '/index.html'];
+fIndexHtml = fopen(IndexHtml, 'w');
+fprintf(fIndexHtml,'%s',strrep(index_header,org_DB_name,DB_name));
+fprintf(fIndexHtml,'<h2>Retrieval Results on Different Settings</h2>');
+for i=1:length(exp_names)
+    if strcmp(exp_names{i},'.') || strcmp(exp_names{i},'..')
+        continue;
+    end
+    HtmlPageLink = ['<p><a href="./' exp_names{i} '.html">' exp_names{i} '</a></p>'];
+    fprintf(fIndexHtml,'%s',HtmlPageLink);
+end
+fprintf(fIndexHtml,'%s',index_tailor);
+fclose(fIndexHtml);
+
+ExpHtml = fullfile(index_html_dir,[exp_purpose '.html']);
+fExpHtml = fopen(ExpHtml, 'w');
+fprintf(fExpHtml,'%s',strrep(index_header,org_DB_name,DB_name));
+fprintf(fExpHtml,'<h2>Testing %s</h2>',exp_purpose);
+if test_perf
+    [gt,ngt] = read_gt_file(gt_filename);
+end
+res_names = dir(fullfile(query_mat_dir,'res_*.mat'));
+res_names = {res_names(:).name};
+num_runs = length(res_names);
+for i=1:num_runs
+    run_name = res_names{i}(5:end-4);
+    fprintf('\r%d/%d: %s',i,num_runs,run_name);
+    
+    if ~exist(fullfile(knn_dir,run_name),'dir')
+        continue;
+    end
+    load(fullfile(query_mat_dir,res_names{i}));
+    trecvid_res_dir = fullfile(query_perf_dir, run_name);
+    if ~exist(trecvid_res_dir,'dir')
+        mkdir(trecvid_res_dir);
+    end
+    if exist('ex_list', 'var')
+        save_trec_perf_list(query_filenames,score,ranks,db_lut,run_name,trecvid_res_dir,eval_topN,ex_list);
+    else
+        save_trec_perf_list(query_filenames,score,ranks,db_lut,run_name,trecvid_res_dir,eval_topN);
+    end
+    if test_perf        
+        perf = compute_trec_performance(query_filenames,gt_filename,trecvid_res_dir, eval_topN, gt);
+        best_perf = cell2mat(cellfun(@(x) max(x), perf, 'UniformOutput', false));
+        avg_perf = cell2mat(cellfun(@(x) mean(x), perf, 'UniformOutput', false));
+        worst_perf = cell2mat(cellfun(@(x) min(x), perf, 'UniformOutput', false));
+        if best_perf==worst_perf
+            perf_tip = sprintf('infAP %.4f',mean(avg_perf));
+        else
+             perf_tip = sprintf('infAP best %.4f avg %.4f worst %.4f',mean(best_perf), mean(avg_perf), mean(worst_perf));
+        end
+    end
+            
+    sub_html_dir = fullfile(run_html_dir, run_name);
+    if ~exist(sub_html_dir,'dir')
+        mkdir(sub_html_dir);
+    end
+
+    %compose run html page
+    runhtml_filename =  fullfile(run_html_dir,[run_name '.html']);
+    if ~exist(runhtml_filename, 'file') || clobber
+        frunpage = fopen(runhtml_filename,'w');
+        if test_perf
+            fprintf(frunpage,'%s',strrep(index_header,org_DB_name,[run_name ' ' perf_tip]));
+        else
+            fprintf(frunpage,'%s',strrep(index_header,org_DB_name,run_name));
+        end
+        fprintf(frunpage,'<table border=2 cellpadding=4>');
+        fprintf(frunpage,'<tr>');
+        query_img_num = 0;
+        
+        for qid = 1:length(query_filenames)
+            subset_num = length(query_filenames{qid});
+            for sid = 1:subset_num
+                pathstr=fileparts(query_filenames{qid}{sid}{1});
+                [~, topic_name]=fileparts(pathstr);
+                
+                knn_filename = sprintf('%s.%d.txt',topic_name,sid);
+                
+                [query,knn] = parse_knn_file(fullfile(knn_dir,run_name,knn_filename), topk);
+                query = cellfun(@(x) strrep(x,'.png','.jpg'), query, 'UniformOutput', false);
+                
+                %compose run html page
+                [topic_name,query_name] = fileparts(query{1});
+                if length(query)==1
+                    query_unit = query_name;
+                else
+                    query_unit = topic_name;
+                end
+                subhtml_filename = fullfile(sub_html_dir,strrep(knn_filename,'.txt','.html'));
+                if ~exist(subhtml_filename, 'file') || clobber
+                    fsubpage = fopen(subhtml_filename,'w');
+                    fprintf(fsubpage,'%s',strrep(html_header,org_DB_name,topic_name));
+                    
+                    fprintf(fsubpage,'%s','<tr>');
+                    % print performance
+                    fprintf(fsubpage,'%s','<td align="center" valign="top" style="padding: 5; background-color: green;">');
+                    if test_perf
+                        fprintf(fsubpage,'%s',['<font face="arial" size="5" color="red"><br>Query Topic<br><b>' query_name...
+                            '</b><br>AP:' num2str(perf{qid}(sid)) '</font></td>']);
+                    else
+                        fprintf(fsubpage,'%s',['<font face="arial" size="5" color="red"><br>Query Topic<br><b>' query_name...
+                            '</b><br></font></td>']);
+                    end
+                    
+                    % print query images
+                    for n = 1:length(query)
+                        query_image_filename = fullfile('../../',query_img_dir,query{n});
+                        fprintf(fsubpage,'%s','<td align="center" valign="top" style="padding: 5; background-color: green;">');
+                        [~,img_name] = fileparts(query{n});
+                        fprintf(fsubpage,'%s',['<img border=0 src="' query_image_filename...
+                            '" height=' num2str(img_height) '><br>' img_name '</td>']);
+                    end
+                    fprintf(fsubpage,'</tr>');
+                    
+                    % print knn images
+                    for n = 1:length(knn)
+                        bg_color = 'silver';
+                        if test_perf
+                            if ismember(knn{n}.name,gt.(['id_' topic_name]))
+                                bg_color = 'red';
+                            elseif ismember(knn{n}.name,ngt.(['id_' topic_name]))
+                                bg_color = 'black';
+                            end
+                            if exist('ex_list','var') && ismember(knn{n}.name,ex_list)
+                                bg_color = 'blue'; % green denotes correct but not be evaluated
+                            end
+                        end
+                        fprintf(fsubpage,'%s','<tr>');
+                        fprintf(fsubpage,'%s',['<td align="center" valign="top" style="padding: 5; background-color:' bg_color ';">']);
+                        fprintf(fsubpage,'%s',['<font face="arial" size="5" color="yellow"><b>' num2str(n)...
+                            '</b><br>' knn{n}.name '<br>' strrep(knn{n}.info, 'dist_', 'distance:') '</font></td>']);
+                        for m = 1:length(knn{n}.rep_imgs)
+                            knn_image_filename = fullfile('../../',database_img_dir,knn{n}.name,[knn{n}.rep_imgs{m} '.jpg']);
+                            fprintf(fsubpage,'%s',['<td align="center" valign="top" style="padding: 5; background-color:' bg_color ';">']);
+                            fprintf(fsubpage,'%s',['<img border=0 src="' knn_image_filename '" height=' num2str(img_height) '></td>']);
+                        end
+                        fprintf(fsubpage,'%s','</tr>');
+                    end
+                    fprintf(fsubpage,'%s',html_tailor);
+                    fclose(fsubpage);
+                end
+                
+                fprintf(frunpage, '%s','<td align="left" valign="top" style="padding: 5; background-color: blue;">');
+                if test_perf
+                    fprintf(frunpage,'%s',['<font face="arial" size="5" color="red"><b>' query_unit...
+                        ' AP:' num2str(perf{qid}(sid)) '</b></font><br>']);
+                else
+                    fprintf(frunpage,'%s',['<font face="arial" size="5" color="red"><b>' query_unit...
+                        '</b></font><br>']);
+                end
+                % print query images
+                for n = 1:length(query)
+                    query_image_filename = fullfile('../',query_img_dir,query{n});
+                    fprintf(frunpage,'%s',['<a href="./' run_name '/' strrep(knn_filename,'.txt','.html') '">']);
+                    fprintf(frunpage,'%s',['<img border=0 src="' query_image_filename '" height=' num2str(img_height) '>']);
+                end
+                fprintf(frunpage,'%s','</td>');
+                query_img_num = query_img_num+1;
+                if rem(query_img_num,num_query_perline) == 0
+                    fprintf(frunpage,'</tr><tr>');
+                end
+            end
+        end
+        fprintf(frunpage,'%s','</tr>');
+        fprintf(frunpage,'%s',index_tailor);
+        fclose(frunpage);
+    end
+    
+    %create linkage in the index page
+    if test_perf
+        HtmlPageLink = ['<p><a href="./run/' run_name '.html">' run_name ' (' perf_tip ')</a></p>'];
+    else
+        HtmlPageLink = ['<p><a href="./run/' run_name '.html">' run_name '</a></p>'];
+    end
+    fprintf(fExpHtml,'%s',HtmlPageLink);
+end
+fprintf(fExpHtml,'%s',index_tailor);
+fclose(fExpHtml);
+end
+
+function [query,knn] = parse_knn_file(filename, topk)
+fid = fopen(filename,'r');
+line = fgetl(fid);
+query = textscan(line,'%s');
+query = query{:};
+k = 1;
+knn = cell(1,topk);
+while ischar(line)
+    line = fgetl(fid);
+    pos = strfind(line,':');
+    id_part = line(1:pos-1);
+    rep_imgs = textscan(line(pos+1:end),'%s');
+    knn{k}.rep_imgs = rep_imgs{:};
+    pos = strfind(id_part,'(');
+    knn{k}.name = id_part(1:pos-1);
+    knn{k}.info = id_part(pos+1:end-1);
+    if k>=topk
+        break;
+    end
+    k = k+1;
+end
+if k<topk
+    k=k-1;
+end
+knn = knn(1:k);
+fclose(fid);
+end
+
+function content = read_txt_file(filename)
+fid = fopen(filename,'r');
+content = cell(1,1000);
+i = 1;
+content{1} = fgets(fid);
+while ischar(content{i})
+    i = i+1; 
+    content{i} = fgets(fid);
+end
+content = cell2mat(content(1:i-1));
+fclose(fid);
+end
+
+function [gt,ngt] = read_gt_file(gt_filename)
+fgt = fopen(gt_filename,'r');
+gt_cell = textscan(fgt,'%d %*d %s %d');
+fclose(fgt);
+[qid, qid_ind,~]=unique(gt_cell{1});
+for i=1:length(qid)
+    if i==1
+        nz_ids = find(gt_cell{3}(1:qid_ind(i)));
+        z_ids = find(gt_cell{3}(1:qid_ind(i))==0);
+        check_list = gt_cell{2}(1:qid_ind(i));
+    else
+        nz_ids = find(gt_cell{3}(qid_ind(i-1)+1:qid_ind(i)));
+        z_ids = find(gt_cell{3}(qid_ind(i-1)+1:qid_ind(i))==0);
+        check_list = gt_cell{2}(qid_ind(i-1)+1:qid_ind(i));
+    end
+    gt.(['id_' num2str(qid(i))]) = check_list(nz_ids);
+    ngt.(['id_' num2str(qid(i))]) = check_list(z_ids);
+end
+end

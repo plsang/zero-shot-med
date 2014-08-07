@@ -1,0 +1,56 @@
+function write_knn(query_filenames, db_lut, score, ranks, db_frame_dir, knn_dir, topk, num_shown_frames,clobber)
+if ~exist('clobber','var')
+    clobber = false;
+end
+assert(length(query_filenames) == length(score));
+if ~exist(knn_dir,'dir')
+    mkdir(knn_dir);
+end
+
+query_num = length(query_filenames);
+for qid = 1:query_num
+    fprintf('\r%d(1-%d)',qid,query_num);
+    subset_num = length(query_filenames{qid});
+    for sid = 1:subset_num
+        [pathstr, query_name]=fileparts(query_filenames{qid}{sid}{1});
+        [~, topic_name]=fileparts(pathstr);
+        if img_num == 1
+            query_unit = query_name;
+        else
+            query_unit = topic_name;
+        end
+        
+        knn_filename = fullfile(knn_dir,sprintf('%s.%d.txt',topic_name,sid));
+        assert(size(ranks{qid}{sid},2) == 1);
+        if ~exist(knn_filename,'file') || clobber
+            % print knn list
+            fid = fopen(knn_filename,'w');
+            img_num = length(query_filenames{qid}{sid});
+            for iid = 1:img_num
+                pos = strfind(query_filenames{qid}{sid}{iid},'/');
+                %topic_name/query_name.jpg
+                fprintf(fid, '%s ',query_filenames{qid}{sid}{iid}(pos(end-1)+1:end));
+            end
+            fprintf(fid,'\n');
+            for i=1:topk
+                shot_info = db_lut{ranks{qid}{sid}(i)};
+                fprintf(fid, '%s(dist_%.4f): ',shot_info,score{qid}{sid}(i));
+                shot_dir = fullfile(db_frame_dir,shot_info);
+                frames = dir(fullfile(shot_dir, '*.jpg'));
+                frames = {frames(:).name};
+                num_frames = length(frames);
+                if num_frames == 0
+                    fprintf(fid, '\n');
+                    continue
+                end
+                rep_frame_ids = linspace(1,num_frames,min(num_frames,num_shown_frames));
+                rep_frame_ids = floor(rep_frame_ids);
+                for j=1:length(rep_frame_ids)
+                    fprintf(fid, '%s ',frames{rep_frame_ids(j)}(1:end-4));
+                end
+                fprintf(fid, '\n');
+            end
+            fclose(fid);
+        end
+    end
+end
